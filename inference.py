@@ -32,8 +32,9 @@ import os
 import re
 import sys
 import time
+import heapq
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Ensure project root is on sys.path
@@ -78,11 +79,22 @@ def _load_config() -> Dict[str, str]:
     elif os.environ.get("HF_TOKEN", "").strip():
         key_source = "HF_TOKEN"
 
+    fallback_on_api_error = (
+        os.environ.get("FALLBACK_ON_API_ERROR", "1").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+    force_rule_based = (
+        os.environ.get("FORCE_RULE_BASED", "0").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+
     return {
         "api_base": api_base,
         "model": model,
         "api_key": api_key,
         "key_source": key_source,
+        "fallback_on_api_error": str(fallback_on_api_error),
+        "force_rule_based": str(force_rule_based),
     }
 
 
@@ -269,6 +281,8 @@ class DeliveryAgent:
         api_base: str = DEFAULT_API_BASE,
         model: str = DEFAULT_MODEL,
         api_key: str = DEFAULT_HF_TOKEN,
+        fallback_on_api_error: bool = True,
+        force_rule_based: bool = False,
     ):
         self.model = model
         self.api_base = api_base
@@ -276,10 +290,165 @@ class DeliveryAgent:
         self.client = InferenceClient(token=api_key)
         self.grader = TaskGrader()
         self._stop_requested = False
+        self.fallback_on_api_error = fallback_on_api_error
+        self.force_rule_based = force_rule_based
+        self._api_disabled = force_rule_based
 
     def stop(self):
         """Request the agent to stop after the current step."""
         self._stop_requested = True
+
+    def _shortest_path_next_hop(self, obs: Observation, start: str, goal: str) -> Optional[str]:
+        """Return next hop on the weighted shortest path from start to goal."""
+        if start == goal:
+            return None
+
+        graph: Dict[str, Dict[str, float]] = {
+            node.node_id: dict(node.edge_weights) for node in obs.nodes
+        }
+        if start not in graph or goal not in graph:
+            return None
+
+        pq: List[Tuple[float, str]] = [(0.0, start)]
+        dist: Dict[str, float] = {start: 0.0}
+        prev: Dict[str, str] = {}
+
+        while pq:
+            cur_dist, cur = heapq.heappop(pq)
+            if cur_dist > dist.get(cur, float("inf")):
+                continue
+            if cur == goal:
+                break
+            for nb, w in graph.get(cur, {}).items():
+                nd = cur_dist + float(w)
+                if nd < dist.get(nb, float("inf")):
+                    dist[nb] = nd
+                    prev[nb] = cur
+                    heapq.heappush(pq, (nd, nb))
+
+        if goal not in dist:
+            return None
+
+        node = goal
+        while prev.get(node) and prev[node] != start:
+            node = prev[node]
+        return node if prev.get(node) == start else None
+
+    def _choose_rule_based_action(self, obs: Observation) -> Action:
+        """Deterministic fallback policy when API calls are unavailable."""
+        drivers = {d.driver_id: d for d in obs.drivers}
+        deliveries = {d.delivery_id: d for d in obs.deliveries}
+
+        # 1) Complete anything already at destination.
+        for delivery in sorted(obs.deliveries, key=lambda d: d.delivery_id):
+            if not delivery.assigned_driver or delivery.status == "Completed":
+                continue
+            drv = drivers.get(delivery.assigned_driver)
+            if drv and drv.current_location == delivery.destination:
+                if delivery.pickup_node is None or delivery.status == "PickedUp":
+                    return Action(
+                        action_type=ActionType.COMPLETE_DELIVERY,
+                        driver_id=drv.driver_id,
+                        delivery_id=delivery.delivery_id,
+                    )
+
+        # 2) Pickup where possible.
+        for delivery in sorted(obs.deliveries, key=lambda d: d.delivery_id):
+            if (
+                delivery.pickup_node
+                and delivery.assigned_driver
+                and delivery.status == "Assigned"
+            ):
+                drv = drivers.get(delivery.assigned_driver)
+                if drv and drv.current_location == delivery.pickup_node:
+                    return Action(
+                        action_type=ActionType.PICKUP_DELIVERY,
+                        driver_id=drv.driver_id,
+                        delivery_id=delivery.delivery_id,
+                    )
+
+        # 3) Assign pending deliveries to the nearest driver with free capacity.
+        pending = sorted(
+            [d for d in obs.deliveries if d.status == "Pending"],
+            key=lambda d: d.delivery_id,
+        )
+        if pending:
+            for delivery in pending:
+                goal = delivery.pickup_node or delivery.destination
+                best_driver: Optional[str] = None
+                best_dist = float("inf")
+                for drv in sorted(obs.drivers, key=lambda d: d.driver_id):
+                    if len(drv.assigned_deliveries) >= drv.capacity:
+                        continue
+                    next_hop = self._shortest_path_next_hop(obs, drv.current_location, goal)
+                    if drv.current_location == goal:
+                        best_driver = drv.driver_id
+                        best_dist = 0.0
+                        break
+                    if next_hop is None:
+                        continue
+                    # Cheap proxy distance: one-hop edge weight toward shortest path.
+                    edge_w = next(
+                        (
+                            n.edge_weights.get(next_hop)
+                            for n in obs.nodes
+                            if n.node_id == drv.current_location
+                        ),
+                        None,
+                    )
+                    score = float(edge_w) if edge_w is not None else 1e9
+                    if score < best_dist:
+                        best_dist = score
+                        best_driver = drv.driver_id
+
+                if best_driver:
+                    return Action(
+                        action_type=ActionType.ASSIGN_DRIVER,
+                        driver_id=best_driver,
+                        delivery_id=delivery.delivery_id,
+                    )
+
+        # 4) Move drivers toward their nearest active assigned objective.
+        for drv in sorted(obs.drivers, key=lambda d: d.driver_id):
+            active = [deliveries[did] for did in drv.assigned_deliveries if did in deliveries]
+            active = [d for d in active if d.status != "Completed"]
+            if not active:
+                continue
+
+            target_delivery = sorted(active, key=lambda d: d.delivery_id)[0]
+            if target_delivery.pickup_node and target_delivery.status == "Assigned":
+                goal = target_delivery.pickup_node
+            else:
+                goal = target_delivery.destination
+
+            if drv.current_location != goal:
+                next_hop = self._shortest_path_next_hop(obs, drv.current_location, goal)
+                if next_hop:
+                    return Action(
+                        action_type=ActionType.MOVE_DRIVER,
+                        driver_id=drv.driver_id,
+                        target_node=next_hop,
+                    )
+
+        # 5) Last-resort: choose a valid-looking move from available actions.
+        for action_text in obs.available_actions:
+            match = re.match(
+                r'move_driver\(driver_id="([^"]+)", target_node="([^"]+)"\)',
+                action_text,
+            )
+            if match:
+                return Action(
+                    action_type=ActionType.MOVE_DRIVER,
+                    driver_id=match.group(1),
+                    target_node=match.group(2),
+                )
+
+        # 6) If no valid action exists, emit an invalid no-op surrogate.
+        return Action(
+            action_type=ActionType.ASSIGN_DRIVER,
+            driver_id="__INVALID__",
+            delivery_id="__INVALID__",
+        )
 
     def run_task(
         self,
@@ -336,32 +505,51 @@ class DeliveryAgent:
 
         while not terminated and not truncated and not self._stop_requested:
             # Call the LLM
-            try:
-                completion = self.client.chat_completion(
-                    model=self.model,
-                    messages=messages,
-                    temperature=0.0,
-                    max_tokens=256,
-                )
-                raw_response = completion.choices[0].message.content or ""
-            except Exception as exc:
-                error_msg = f"API call failed: {exc}"
-                print(
-                    json.dumps({
-                        "event": "ERROR",
-                        "task_id": task_id,
-                        "step": step_num + 1,
-                        "error": error_msg,
-                        "timestamp": _ts(),
-                    }),
-                    flush=True,
-                )
-                if on_error:
-                    on_error(error_msg)
-                break
+            raw_response = ""
+            if self._api_disabled:
+                action = self._choose_rule_based_action(obs)
+            else:
+                try:
+                    completion = self.client.chat_completion(
+                        model=self.model,
+                        messages=messages,
+                        temperature=0.0,
+                        max_tokens=256,
+                    )
+                    raw_response = completion.choices[0].message.content or ""
+                    action = _parse_action(raw_response)
+                except Exception as exc:
+                    error_msg = f"API call failed: {exc}"
+                    print(
+                        json.dumps({
+                            "event": "ERROR",
+                            "task_id": task_id,
+                            "step": step_num + 1,
+                            "error": error_msg,
+                            "timestamp": _ts(),
+                        }),
+                        flush=True,
+                    )
+                    if on_error:
+                        on_error(error_msg)
+
+                    if self.fallback_on_api_error:
+                        self._api_disabled = True
+                        print(
+                            json.dumps({
+                                "event": "WARN",
+                                "task_id": task_id,
+                                "step": step_num + 1,
+                                "warning": "Switching to local rule-based fallback policy.",
+                                "timestamp": _ts(),
+                            }),
+                            flush=True,
+                        )
+                        action = self._choose_rule_based_action(obs)
+                    else:
+                        break
 
             # Parse action
-            action = _parse_action(raw_response)
             if action is None:
                 action = Action(
                     action_type=ActionType.ASSIGN_DRIVER,
@@ -401,15 +589,18 @@ class DeliveryAgent:
                         result.info.valid, obs_sum, result)
 
             # Append to conversation
-            messages.append({"role": "assistant", "content": raw_response})
-            messages.append({
-                "role": "user",
-                "content": (
-                    f"Result: {result.observation.last_action_result}\n\n"
-                    f"--- Observation (step {step_num}) ---\n"
-                    f"{_observation_to_prompt(result.observation)}"
-                ),
-            })
+            if raw_response:
+                messages.append({"role": "assistant", "content": raw_response})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"Result: {result.observation.last_action_result}\n\n"
+                        f"--- Observation (step {step_num}) ---\n"
+                        f"{_observation_to_prompt(result.observation)}"
+                    ),
+                })
+
+            obs = result.observation
 
         if self._stop_requested:
             return None
@@ -459,6 +650,8 @@ def main() -> None:
     print(f"  API Base    : {config['api_base']}")
     print(f"  Auth Source : {config['key_source']}")
     print(f"  Tasks       : {', '.join(TASK_IDS)}")
+    print(f"  Fallback    : {'ON' if config['fallback_on_api_error'] == 'True' else 'OFF'}")
+    print(f"  Rule-based  : {'ON' if config['force_rule_based'] == 'True' else 'OFF'}")
     print("=" * 60)
     print()
 
@@ -466,6 +659,8 @@ def main() -> None:
         api_base=config["api_base"],
         model=config["model"],
         api_key=config["api_key"],
+        fallback_on_api_error=config["fallback_on_api_error"] == "True",
+        force_rule_based=config["force_rule_based"] == "True",
     )
 
     results = agent.run_all_tasks()

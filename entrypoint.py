@@ -60,6 +60,12 @@ def _run_inference() -> None:
     inference_main()
 
 
+def _should_keep_alive() -> bool:
+    """Whether to keep the process alive after inference finishes."""
+    value = os.environ.get("KEEP_ALIVE_AFTER_RUN", "1").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8080"))
 
@@ -78,3 +84,11 @@ if __name__ == "__main__":
     _run_inference()
 
     print("[entrypoint] Done.", flush=True)
+
+    if _should_keep_alive():
+        print("[entrypoint] KEEP_ALIVE_AFTER_RUN enabled; serving health endpoints.", flush=True)
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            print("\n[entrypoint] Shutting down.", flush=True)
