@@ -54,7 +54,7 @@ from env.graders import TaskGrader, GradeReport
 # Default HuggingFace API Configuration
 # ═══════════════════════════════════════════════════════════════════════
 
-DEFAULT_API_BASE = "https://api-inference.huggingface.co/v1"
+DEFAULT_API_BASE = "https://router.huggingface.co/hf-inference/v1"
 DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 DEFAULT_HF_TOKEN = ""
 
