@@ -3,10 +3,11 @@
 # ═══════════════════════════════════════════════════════════════════
 
 # Core
+openenv-core>=0.2.0
 pydantic>=2.0,<3.0
 
 # Inference client (OpenAI-compatible — works with HuggingFace API)
-openai>=1.0,<2.0
+openai>=2.7.2,<3.0
 
 # LLM access via HuggingFace
 huggingface-hub>=0.20
