@@ -104,10 +104,10 @@ class HealthHandler(BaseHTTPRequestHandler):
     </ul>
 </body>
 </html>""",
-                )
-                return
+            )
+            return
 
-            if path == "/healthz":
+        if path == "/healthz":
             self._respond_json(200, {
                 "status": "ok",
                 "uptime_seconds": round(time.time() - _BOOT_TIME, 1),
