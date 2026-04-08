@@ -33,8 +33,9 @@ class DeliveryTrackerGUI:
         self.root = root
         self.root.title("Delivery Tracker System")
         self.root.geometry("1200x800")
-        
-        # Initialize data structures
+        # Initialize core system components like graph, drivers, deliveries
+        # Graph represents the map structure
+        # Drivers and deliveries store real-time data
         self.graph = Graph()
         self.drivers = {}
         self.deliveries = {}
@@ -72,7 +73,8 @@ class DeliveryTrackerGUI:
         self.create_ai_agent_tab()
         
     def create_map_tab(self):
-        # Map Management Tab
+        # This tab allows users to visualize and manage the delivery map
+        # Includes coordinate system and interactive canvas
         self.map_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.map_frame, text="Map Management")
         
