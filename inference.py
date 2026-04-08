@@ -55,7 +55,7 @@ from env.graders import TaskGrader, GradeReport
 # ═══════════════════════════════════════════════════════════════════════
 
 DEFAULT_API_BASE = "https://router.huggingface.co/hf-inference/v1"
-DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+DEFAULT_MODEL = "Qwen/Qwen2.5-Coder-32B-Instruct"
 DEFAULT_HF_TOKEN = ""
 
 
