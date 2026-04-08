@@ -649,64 +649,77 @@ class DeliveryAgent:
 
 def main() -> None:
     """Run all benchmark tasks and print a final scorecard."""
-    config = _load_config()
+    try:
+        config = _load_config()
 
-    _safe_print("=" * 60)
-    _safe_print("  OpenEnv Delivery Tracker — Inference Runner")
-    _safe_print("=" * 60)
-    _safe_print(f"  Model       : {config['model']}")
-    _safe_print(f"  API Base    : {config['api_base']}")
-    _safe_print(f"  Auth Source : {config['key_source']}")
-    _safe_print(f"  Tasks       : {', '.join(TASK_IDS)}")
-    _safe_print(f"  Fallback    : {'ON' if config['fallback_on_api_error'] == 'True' else 'OFF'}")
-    _safe_print(f"  Rule-based  : {'ON' if config['force_rule_based'] == 'True' else 'OFF'}")
-    _safe_print("=" * 60)
-    _safe_print()
+        _safe_print("=" * 60)
+        _safe_print("  OpenEnv Delivery Tracker - Inference Runner")
+        _safe_print("=" * 60)
+        _safe_print(f"  Model       : {config['model']}")
+        _safe_print(f"  API Base    : {config['api_base']}")
+        _safe_print(f"  Auth Source : {config['key_source']}")
+        _safe_print(f"  Tasks       : {', '.join(TASK_IDS)}")
+        _safe_print(f"  Fallback    : {'ON' if config['fallback_on_api_error'] == 'True' else 'OFF'}")
+        _safe_print(f"  Rule-based  : {'ON' if config['force_rule_based'] == 'True' else 'OFF'}")
+        _safe_print("=" * 60)
+        _safe_print()
 
-    agent = DeliveryAgent(
-        api_base=config["api_base"],
-        model=config["model"],
-        api_key=config["api_key"],
-        fallback_on_api_error=config["fallback_on_api_error"] == "True",
-        force_rule_based=config["force_rule_based"] == "True",
-    )
+        agent = DeliveryAgent(
+            api_base=config["api_base"],
+            model=config["model"],
+            api_key=config["api_key"],
+            fallback_on_api_error=config["fallback_on_api_error"] == "True",
+            force_rule_based=config["force_rule_based"] == "True",
+        )
 
-    results = agent.run_all_tasks()
+        results = agent.run_all_tasks()
 
-    # ── Aggregate scorecard ──────────────────────────────────────────
-    _safe_print("\n" + "═" * 60)
-    _safe_print("  AGGREGATE SCORECARD")
-    _safe_print("═" * 60)
-    _safe_print(f"  {'Task':<10} {'Score':>8} {'Compl':>8} {'Effic':>8} {'Speed':>8} {'Valid':>8}")
-    _safe_print(f"  {'─'*10} {'─'*8} {'─'*8} {'─'*8} {'─'*8} {'─'*8}")
+        # Aggregate scorecard
+        _safe_print("\n" + "=" * 60)
+        _safe_print("  AGGREGATE SCORECARD")
+        _safe_print("=" * 60)
+        _safe_print(f"  {'Task':<10} {'Score':>8} {'Compl':>8} {'Effic':>8} {'Speed':>8} {'Valid':>8}")
+        _safe_print(f"  {'-'*10} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
 
-    total_score = 0.0
-    for tid in TASK_IDS:
-        if tid in results:
-            r = results[tid]
-            total_score += r.score
-            _safe_print(
-                f"  {tid:<10} {r.score:>8.4f} {r.completion_score:>8.4f} "
-                f"{r.efficiency_score:>8.4f} {r.speed_score:>8.4f} "
-                f"{r.validity_score:>8.4f}"
-            )
+        total_score = 0.0
+        for tid in TASK_IDS:
+            if tid in results:
+                r = results[tid]
+                total_score += r.score
+                _safe_print(
+                    f"  {tid:<10} {r.score:>8.4f} {r.completion_score:>8.4f} "
+                    f"{r.efficiency_score:>8.4f} {r.speed_score:>8.4f} "
+                    f"{r.validity_score:>8.4f}"
+                )
 
-    graded_count = len(results)
-    avg_score = total_score / graded_count if graded_count else 0.0
-    _safe_print(f"  {'─'*10} {'─'*8}")
-    _safe_print(f"  {'AVERAGE':<10} {avg_score:>8.4f}")
-    _safe_print("═" * 60)
+        graded_count = len(results)
+        avg_score = total_score / graded_count if graded_count else 0.0
+        _safe_print(f"  {'-'*10} {'-'*8}")
+        _safe_print(f"  {'AVERAGE':<10} {avg_score:>8.4f}")
+        _safe_print("=" * 60)
 
-    # ── JSON summary ────────────────────────────────────────────────
-    json_summary = {
-        "model": config["model"],
-        "tasks": {
-            tid: results[tid].to_dict() for tid in TASK_IDS if tid in results
-        },
-        "aggregate_score": round(avg_score, 4),
-    }
-    _safe_print("\n--- JSON Summary ---")
-    _safe_print(json.dumps(json_summary, indent=2))
+        # JSON summary
+        json_summary = {
+            "model": config["model"],
+            "tasks": {
+                tid: results[tid].to_dict() for tid in TASK_IDS if tid in results
+            },
+            "aggregate_score": round(avg_score, 4),
+        }
+        _safe_print("\n--- JSON Summary ---")
+        _safe_print(json.dumps(json_summary, indent=2))
+    except Exception as exc:
+        _safe_print(
+            json.dumps(
+                {
+                    "event": "FATAL",
+                    "timestamp": _ts(),
+                    "error": str(exc),
+                    "trace": traceback.format_exc(),
+                }
+            ),
+            flush=True,
+        )
 
 
 if __name__ == "__main__":
