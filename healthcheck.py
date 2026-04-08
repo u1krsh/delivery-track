@@ -76,9 +76,38 @@ class HealthHandler(BaseHTTPRequestHandler):
     """Minimal HTTP handler for health probes."""
 
     def do_GET(self) -> None:  # noqa: N802
-        path = self.path.rstrip("/")
+        path = self.path.split("?", 1)[0].rstrip("/")
 
-        if path == "/healthz":
+        if path == "":
+            self._respond_html(
+                200,
+                """<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delivery Tracker Space</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.5; }
+        h1 { margin-bottom: 0.25rem; }
+        .muted { color: #555; margin-top: 0; }
+        ul { padding-left: 1.2rem; }
+    </style>
+</head>
+<body>
+    <h1>Delivery Tracker is running</h1>
+    <p class="muted">Health endpoints:</p>
+    <ul>
+        <li><a href="/healthz">/healthz</a> (liveness)</li>
+        <li><a href="/readyz">/readyz</a> (readiness)</li>
+        <li><a href="/reset">/reset</a> (env reset check)</li>
+    </ul>
+</body>
+</html>""",
+                )
+                return
+
+            if path == "/healthz":
             self._respond_json(200, {
                 "status": "ok",
                 "uptime_seconds": round(time.time() - _BOOT_TIME, 1),
@@ -120,6 +149,14 @@ class HealthHandler(BaseHTTPRequestHandler):
         payload = json.dumps(body, indent=2).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _respond_html(self, code: int, body: str) -> None:
+        payload = body.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
