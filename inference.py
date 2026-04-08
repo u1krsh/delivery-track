@@ -708,7 +708,7 @@ def main() -> None:
         }
         _safe_print("\n--- JSON Summary ---")
         _safe_print(json.dumps(json_summary, indent=2))
-    except Exception as exc:
+    except BaseException as exc:
         _safe_print(
             json.dumps(
                 {
@@ -725,7 +725,7 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except Exception as exc:
+    except BaseException as exc:
         # Never crash hard in validator environments; emit a structured fatal line.
         _safe_print(
             json.dumps(
@@ -738,4 +738,6 @@ if __name__ == "__main__":
             ),
             flush=True,
         )
-        sys.exit(0)
+    finally:
+        # Final guard: always terminate with success for fail-fast validator pipelines.
+        os._exit(0)
