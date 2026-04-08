@@ -16,11 +16,11 @@ services:
       dockerfile: Dockerfile
     container_name: delivery-tracker-openenv
     ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+      - "${PORT:-7860}:${PORT:-7860}"
     env_file:
       - .env
     environment:
-      - PORT=${PORT:-8080}
+      - PORT=${PORT:-7860}
     deploy:
       resources:
         limits:
@@ -31,7 +31,7 @@ services:
           memory: 2G
     healthcheck:
       test: ["CMD", "python", "-c",
-        "import urllib.request, sys; r = urllib.request.urlopen('http://localhost:${PORT:-8080}/healthz', timeout=2); sys.exit(0 if r.status == 200 else 1)"]
+        "import urllib.request, sys; r = urllib.request.urlopen('http://localhost:${PORT:-7860}/healthz', timeout=2); sys.exit(0 if r.status == 200 else 1)"]
       interval: 30s
       timeout: 3s
       start_period: 5s

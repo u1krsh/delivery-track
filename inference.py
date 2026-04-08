@@ -286,6 +286,7 @@ class DeliveryAgent:
         task_id: str,
         on_step: Optional[StepCallback] = None,
         on_error: Optional[Callable[[str], None]] = None,
+        task_config=None,
     ) -> Optional[GradeReport]:
         """
         Run a single benchmark task end-to-end.
@@ -293,12 +294,15 @@ class DeliveryAgent:
         Parameters
         ----------
         task_id : str
-            One of "easy", "medium", "hard".
+            One of "easy", "medium", "hard", or "custom".
         on_step : callable, optional
             Called after each step with (step_num, action_dict, reward, valid,
             obs_summary, step_result).
         on_error : callable, optional
             Called on API errors with the error message string.
+        task_config : TaskConfig, optional
+            Pre-built task configuration. If provided, ``get_task(task_id)``
+            is skipped and this config is used directly.
 
         Returns
         -------
@@ -307,7 +311,7 @@ class DeliveryAgent:
         """
         self._stop_requested = False
 
-        cfg = get_task(task_id)
+        cfg = task_config if task_config is not None else get_task(task_id)
         env = DeliveryEnvironment(cfg)
         obs = env.reset()
 

@@ -1,3 +1,13 @@
+---
+title: DeliveryAgent
+emoji: 🚚
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # 🚀 Delivery Tracker — OpenEnv Benchmark
 
 A **real-world-inspired delivery dispatch benchmark** for evaluating AI agents on multi-driver assignment, graph-based routing, and order-completion tasks with dense reward signals.
@@ -141,7 +151,7 @@ python inference.py
 ```bash
 # Build and run
 docker build -t delivery-tracker-openenv .
-docker run --rm -p 8080:8080 delivery-tracker-openenv
+docker run --rm -p 7860:7860 delivery-tracker-openenv
 
 # With docker-compose
 cp .env.example .env

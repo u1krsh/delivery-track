@@ -10,7 +10,7 @@ Provides two endpoints:
 Used by Docker HEALTHCHECK and Kubernetes/HF Spaces probes.
 
 This server is intentionally minimal: stdlib only, no framework dependency.
-It runs on port 8080 by default (override with PORT env var).
+It runs on port 7860 by default (override with PORT env var).
 """
 
 from __future__ import annotations

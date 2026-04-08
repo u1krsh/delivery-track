@@ -33,9 +33,8 @@ class DeliveryTrackerGUI:
         self.root = root
         self.root.title("Delivery Tracker System")
         self.root.geometry("1200x800")
-        # Initialize core system components like graph, drivers, deliveries
-        # Graph represents the map structure
-        # Drivers and deliveries store real-time data
+        
+        # Initialize data structures
         self.graph = Graph()
         self.drivers = {}
         self.deliveries = {}
@@ -73,8 +72,7 @@ class DeliveryTrackerGUI:
         self.create_ai_agent_tab()
         
     def create_map_tab(self):
-        # This tab allows users to visualize and manage the delivery map
-        # Includes coordinate system and interactive canvas
+        # Map Management Tab
         self.map_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.map_frame, text="Map Management")
         
@@ -1300,7 +1298,7 @@ Confidence: High (Random Forest Model)
     def create_ai_agent_tab(self):
         """Create the AI Agent tab for running HuggingFace-powered dispatch agent"""
         self.agent_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.agent_frame, text="🤖 AI Agent")
+        self.notebook.add(self.agent_frame, text="AI Agent")
 
         # AI Agent state
         self.ai_agent = None
@@ -1316,25 +1314,29 @@ Confidence: High (Random Forest Model)
 
         ttk.Label(controls_row, text="Task:").pack(side=tk.LEFT, padx=5)
         self.ai_task_var = tk.StringVar(value="easy")
-        task_combo = ttk.Combobox(controls_row, textvariable=self.ai_task_var,
-                                  values=list(TASK_IDS), state="readonly", width=10)
-        task_combo.pack(side=tk.LEFT, padx=5)
-        task_combo.bind("<<ComboboxSelected>>", self._ai_on_task_selected)
+        self._ai_task_values = list(TASK_IDS)
+        self.ai_task_combo = ttk.Combobox(controls_row, textvariable=self.ai_task_var,
+                                  values=self._ai_task_values, state="readonly", width=12)
+        self.ai_task_combo.pack(side=tk.LEFT, padx=5)
+        self.ai_task_combo.bind("<<ComboboxSelected>>", self._ai_on_task_selected)
+
+        ttk.Button(controls_row, text="Use Map Editor Graph",
+                   command=self._ai_load_from_map_editor).pack(side=tk.LEFT, padx=5)
 
         ttk.Label(controls_row, text="Model:").pack(side=tk.LEFT, padx=(15, 5))
         self.ai_model_var = tk.StringVar(value=DEFAULT_MODEL)
         model_entry = ttk.Entry(controls_row, textvariable=self.ai_model_var, width=35)
         model_entry.pack(side=tk.LEFT, padx=5)
 
-        self.ai_run_btn = ttk.Button(controls_row, text="▶ Run Agent",
+        self.ai_run_btn = ttk.Button(controls_row, text="Run Agent",
                                      command=self._ai_start_agent)
         self.ai_run_btn.pack(side=tk.LEFT, padx=10)
 
-        self.ai_stop_btn = ttk.Button(controls_row, text="⏹ Stop",
+        self.ai_stop_btn = ttk.Button(controls_row, text="Stop",
                                       command=self._ai_stop_agent, state=tk.DISABLED)
         self.ai_stop_btn.pack(side=tk.LEFT, padx=5)
 
-        self.ai_run_all_btn = ttk.Button(controls_row, text="⚡ Run All Tasks",
+        self.ai_run_all_btn = ttk.Button(controls_row, text="Run All Tasks",
                                          command=self._ai_start_all)
         self.ai_run_all_btn.pack(side=tk.LEFT, padx=5)
 
@@ -1407,8 +1409,118 @@ Confidence: High (Random Forest Model)
         ttk.Button(right_frame, text="Clear Log",
                    command=self._ai_clear_log).pack(pady=(5, 0))
 
+        # Custom map-editor task config holder
+        self._ai_custom_config = None
+
         # Load initial task
         self._ai_on_task_selected(None)
+
+    # ── AI Agent: Load from Map Editor ────────────────────────────────
+
+    def _ai_load_from_map_editor(self):
+        """Import the current Map Editor graph, drivers, and deliveries as a custom AI agent task."""
+        # Validate that the map has enough data
+        if not self.graph.nodes:
+            messagebox.showwarning("Empty Map", "The Map Editor has no intersections. Add nodes first.")
+            return
+        if not self.graph.edges:
+            messagebox.showwarning("No Roads", "The Map Editor has no roads. Add edges first.")
+            return
+        if not self.drivers:
+            messagebox.showwarning("No Drivers", "Add at least one driver in the Drivers tab before using the map for the agent.")
+            return
+        if not self.deliveries:
+            messagebox.showwarning("No Deliveries", "Add at least one delivery in the Deliveries tab before using the map for the agent.")
+            return
+
+        # Build nodes list
+        nodes = []
+        for nid, data in self.graph.nodes.items():
+            nodes.append({"id": nid, "x": float(data.get("x", 0)), "y": float(data.get("y", 0))})
+
+        # Build edges list (deduplicate undirected edges)
+        seen_edges = set()
+        edges = []
+        for n1, neighbors in self.graph.edges.items():
+            for n2, weight in neighbors.items():
+                edge_key = tuple(sorted([n1, n2]))
+                if edge_key not in seen_edges:
+                    seen_edges.add(edge_key)
+                    edges.append({"start": n1, "end": n2, "weight": float(weight)})
+
+        # Build drivers list
+        drivers_list = []
+        for drv in self.drivers.values():
+            drivers_list.append({
+                "id": drv.driver_id,
+                "name": drv.name,
+                "location": drv.current_location,
+                "capacity": getattr(drv, 'capacity', 2),
+            })
+
+        # Build deliveries list
+        deliveries_list = []
+        for dlv in self.deliveries.values():
+            entry = {"id": dlv.delivery_id, "destination": dlv.destination}
+            if hasattr(dlv, 'pickup') and dlv.pickup:
+                entry["pickup"] = dlv.pickup
+            deliveries_list.append(entry)
+
+        # Build the description for the LLM
+        node_ids = [n["id"] for n in nodes]
+        edge_strs = [f"{e['start']}--{e['weight']}--{e['end']}" for e in edges]
+        driver_strs = [f"{d['id']} ({d['name']}) at {d['location']}" for d in drivers_list]
+        delivery_strs = []
+        for d in deliveries_list:
+            s = f"{d['id']}: deliver to {d['destination']}"
+            if d.get('pickup'):
+                s += f" (pickup at {d['pickup']})"
+            delivery_strs.append(s)
+
+        description = (
+            "You are a delivery dispatcher managing a custom map.\n\n"
+            f"GRAPH: {len(nodes)} nodes: {', '.join(node_ids)}\n"
+            f"EDGES: {', '.join(edge_strs)}\n\n"
+            f"DRIVERS:\n" + "\n".join(f"  - {s}" for s in driver_strs) + "\n\n"
+            f"DELIVERIES:\n" + "\n".join(f"  - {s}" for s in delivery_strs) + "\n\n"
+            "OBJECTIVE: Assign each delivery to a driver, route them "
+            "efficiently, and complete all deliveries.\n\n"
+            "ACTIONS AVAILABLE:\n"
+            "  - assign_driver(driver_id, delivery_id)\n"
+            "  - move_driver(driver_id, target_node)  [adjacent nodes only]\n"
+            "  - pickup_delivery(driver_id, delivery_id)  [at pickup node, if applicable]\n"
+            "  - complete_delivery(driver_id, delivery_id)  [at destination]\n"
+        )
+
+        # Determine max steps heuristic
+        max_steps = max(10, len(deliveries_list) * 8 + len(nodes) * 2)
+
+        from env.models import TaskConfig
+        self._ai_custom_config = TaskConfig(
+            task_id="custom",
+            task_name="Map Editor Task",
+            difficulty="custom",
+            description=description,
+            max_steps=max_steps,
+            seed=42,
+            nodes=nodes,
+            edges=edges,
+            drivers=drivers_list,
+            deliveries=deliveries_list,
+        )
+
+        # Add "custom" to the task dropdown if not present, then select it
+        if "custom" not in self._ai_task_values:
+            self._ai_task_values.append("custom")
+            self.ai_task_combo['values'] = self._ai_task_values
+
+        self.ai_task_var.set("custom")
+        self._ai_on_task_selected(None)
+
+        self._ai_log_msg("Loaded map from Map Editor as custom task.", "info")
+        self._ai_log_msg(
+            f"  Nodes: {len(nodes)}  |  Edges: {len(edges)}  |  "
+            f"Drivers: {len(drivers_list)}  |  Deliveries: {len(deliveries_list)}", "info")
 
     # ── AI Agent: Event handlers ─────────────────────────────────────
 
@@ -1416,7 +1528,10 @@ Confidence: High (Random Forest Model)
         """Load task info and draw the map"""
         task_id = self.ai_task_var.get()
         try:
-            cfg = get_task(task_id)
+            if task_id == "custom" and self._ai_custom_config:
+                cfg = self._ai_custom_config
+            else:
+                cfg = get_task(task_id)
             self._ai_current_config = cfg
 
             self.ai_task_info.config(state=tk.NORMAL)
@@ -1494,10 +1609,12 @@ Confidence: High (Random Forest Model)
     def _ai_run_thread(self, task_id):
         """Background thread: run single task"""
         try:
+            custom_cfg = self._ai_custom_config if task_id == "custom" else None
             report = self.ai_agent.run_task(
                 task_id,
                 on_step=self._ai_on_step,
                 on_error=lambda msg: self.root.after(0, self._ai_log_msg, f"ERROR: {msg}", "invalid"),
+                task_config=custom_cfg,
             )
             if report:
                 self.root.after(0, self._ai_show_report, report)

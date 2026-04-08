@@ -4,11 +4,11 @@
 #
 # Target:   2 vCPU · 8 GB RAM  (Hugging Face Spaces free tier)
 # Base:     Python 3.11 slim   → final image ≈ 200 MB
-# Health:   GET /healthz  on $PORT (default 8080)
+# Health:   GET /healthz  on $PORT (default 7860)
 # Reset:    GET /reset    on $PORT → deterministic env reset
 #
 # Build:    docker build -t delivery-tracker-openenv .
-# Run:      docker run --rm -p 8080:8080 \
+# Run:      docker run --rm -p 7860:7860 \
 #             -e API_BASE_URL=... -e MODEL_NAME=... -e OPENAI_API_KEY=... \
 #             delivery-tracker-openenv
 #
@@ -44,7 +44,7 @@ LABEL maintainer="u1krsh" \
 # Runtime environment
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=8080 \
+    PORT=7860 \
     # Graceful shutdown timeout (seconds)
     SHUTDOWN_TIMEOUT=10 \
     # Default task subset (empty = all tasks)
