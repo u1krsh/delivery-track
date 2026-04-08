@@ -128,6 +128,38 @@ class HealthHandler(BaseHTTPRequestHandler):
         else:
             self._respond_json(404, {"error": f"Unknown path: {self.path}"})
 
+    def do_POST(self) -> None:  # noqa: N802
+        """Support reset via POST for OpenEnv compliance checks."""
+        path = self.path.split("?", 1)[0].rstrip("/")
+
+        # Read and discard request body (if any) to keep connection state clean.
+        content_length = int(self.headers.get("Content-Length", "0") or "0")
+        if content_length > 0:
+            _ = self.rfile.read(content_length)
+
+        if path == "/reset":
+            result = self._do_reset()
+            code = 200 if "error" not in result else 500
+            self._respond_json(code, result)
+            return
+
+        if path == "/readyz":
+            result = _validate_env()
+            code = 200 if result.get("valid") else 503
+            self._respond_json(code, {"ready": result.get("valid", False), **result})
+            return
+
+        if path == "/healthz":
+            self._respond_json(200, {
+                "status": "ok",
+                "uptime_seconds": round(time.time() - _BOOT_TIME, 1),
+                "tasks": list(TASK_IDS) if not _BOOT_ERROR else [],
+                "boot_error": _BOOT_ERROR,
+            })
+            return
+
+        self._respond_json(404, {"error": f"Unknown path: {self.path}"})
+
     def _do_reset(self) -> Dict[str, Any]:
         """Reset the easy task and return the observation summary."""
         try:
