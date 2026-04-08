@@ -56,7 +56,7 @@ from env.graders import TaskGrader, GradeReport
 
 DEFAULT_API_BASE = "https://api-inference.huggingface.co/v1"
 DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-DEFAULT_HF_TOKEN = "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"
+DEFAULT_HF_TOKEN = ""
 
 
 def _load_config() -> Dict[str, str]:
