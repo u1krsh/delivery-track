@@ -1,0 +1,112 @@
+Dish,Cuisine,BasePrepTime,TimeMultiplier,Category
+Margherita Pizza,Italian,15,1.0,Main Course
+Pepperoni Pizza,Italian,18,1.1,Main Course
+Lasagna,Italian,45,1.3,Main Course
+Spaghetti Carbonara,Italian,20,1.1,Main Course
+Tiramisu,Italian,30,1.2,Dessert
+Risotto,Italian,35,1.4,Main Course
+Focaccia,Italian,25,1.0,Starter
+Bruschetta,Italian,10,0.9,Starter
+Gelato,Italian,5,0.8,Dessert
+Panna Cotta,Italian,20,1.1,Dessert
+Sushi Platter,Japanese,25,1.2,Main Course
+Ramen,Japanese,20,1.1,Main Course
+Tempura,Japanese,15,1.2,Starter
+Miso Soup,Japanese,5,0.8,Starter
+Sashimi,Japanese,15,1.1,Main Course
+Udon Noodles,Japanese,18,1.0,Main Course
+Matcha Ice Cream,Japanese,5,0.9,Dessert
+Mochi,Japanese,10,1.0,Dessert
+Teriyaki Chicken,Japanese,20,1.1,Main Course
+Gyoza,Japanese,15,1.1,Starter
+Butter Chicken,Indian,35,1.3,Main Course
+Chicken Biryani,Indian,45,1.4,Main Course
+Naan Bread,Indian,10,1.0,Side
+Samosa,Indian,15,1.1,Starter
+Paneer Tikka,Indian,25,1.2,Starter
+Dal Makhani,Indian,40,1.2,Main Course
+Gulab Jamun,Indian,15,1.1,Dessert
+Masala Dosa,Indian,20,1.2,Main Course
+Chole Bhature,Indian,30,1.3,Main Course
+Lassi,Indian,5,0.8,Beverage
+Tacos,Mexican,15,1.0,Main Course
+Burrito,Mexican,12,1.0,Main Course
+Guacamole & Chips,Mexican,5,0.8,Starter
+Quesadilla,Mexican,10,1.0,Starter
+Enchiladas,Mexican,25,1.2,Main Course
+Churros,Mexican,15,1.1,Dessert
+Nachos,Mexican,15,1.0,Starter
+Fajitas,Mexican,20,1.2,Main Course
+Salsa,Mexican,5,0.8,Side
+Tres Leches Cake,Mexican,30,1.2,Dessert
+Kung Pao Chicken,Chinese,20,1.1,Main Course
+Dim Sum,Chinese,25,1.3,Starter
+Spring Rolls,Chinese,15,1.0,Starter
+Peking Duck,Chinese,60,1.5,Main Course
+Fried Rice,Chinese,15,1.0,Main Course
+Chow Mein,Chinese,15,1.0,Main Course
+Mapo Tofu,Chinese,20,1.1,Main Course
+Wonton Soup,Chinese,15,1.0,Starter
+Dumplings,Chinese,20,1.2,Starter
+Sweet and Sour Pork,Chinese,25,1.2,Main Course
+Burger,American,15,1.0,Main Course
+Cheeseburger,American,15,1.0,Main Course
+French Fries,American,10,0.9,Side
+Hot Dog,American,8,0.9,Main Course
+Apple Pie,American,40,1.2,Dessert
+Buffalo Wings,American,20,1.1,Starter
+Mac and Cheese,American,25,1.1,Main Course
+Caesar Salad,American,12,0.9,Starter
+Milkshake,American,8,0.9,Beverage
+Grilled Cheese,American,10,0.9,Main Course
+Pad Thai,Thai,20,1.1,Main Course
+Green Curry,Thai,25,1.2,Main Course
+Tom Yum Soup,Thai,15,1.1,Starter
+Pad See Ew,Thai,20,1.1,Main Course
+Mango Sticky Rice,Thai,15,1.0,Dessert
+Som Tum (Papaya Salad),Thai,15,1.0,Starter
+Massaman Curry,Thai,35,1.3,Main Course
+Spring Rolls (Thai),Thai,15,1.0,Starter
+Thai Iced Tea,Thai,5,0.8,Beverage
+Satay,Thai,20,1.1,Starter
+Pho,Vietnamese,30,1.2,Main Course
+Banh Mi,Vietnamese,10,0.9,Main Course
+Spring Rolls (Fresh),Vietnamese,15,1.0,Starter
+Bun Cha,Vietnamese,25,1.2,Main Course
+Egg Coffee,Vietnamese,10,1.1,Beverage
+Croissant,French,20,1.2,Breakfast
+Baguette,French,15,1.0,Side
+Escargots,French,20,1.3,Starter
+Ratatouille,French,40,1.3,Main Course
+Creme Brulee,French,35,1.3,Dessert
+Onion Soup,French,30,1.2,Starter
+Quiche Lorraine,French,35,1.2,Main Course
+Macarons,French,25,1.4,Dessert
+Crepes,French,15,1.1,Dessert
+Coq au Vin,French,60,1.5,Main Course
+Paella,Spanish,50,1.4,Main Course
+Gazpacho,Spanish,15,1.0,Starter
+Tapas Platter,Spanish,20,1.2,Starter
+Churros (Spanish),Spanish,15,1.1,Dessert
+Tortilla Espanola,Spanish,25,1.1,Main Course
+Falafel,Middle Eastern,15,1.0,Starter
+Hummus & Pita,Middle Eastern,5,0.8,Starter
+Shawarma,Middle Eastern,15,1.1,Main Course
+Baklava,Middle Eastern,30,1.3,Dessert
+Kebab,Middle Eastern,20,1.1,Main Course
+Tabouleh,Middle Eastern,15,1.0,Side
+Greek Salad,Greek,10,0.9,Starter
+Moussaka,Greek,50,1.4,Main Course
+Souvlaki,Greek,20,1.1,Main Course
+Tzatziki,Greek,5,0.8,Side
+Spanakopita,Greek,30,1.2,Starter
+Fish and Chips,British,25,1.1,Main Course
+Shepherd's Pie,British,45,1.2,Main Course
+Full English Breakfast,British,20,1.1,Breakfast
+Scones,British,25,1.1,Dessert
+Beef Wellington,British,60,1.6,Main Course
+Bratwurst,German,15,1.0,Main Course
+Pretzel,German,15,1.0,Side
+Schnitzel,German,25,1.2,Main Course
+Sauerkraut,German,10,0.9,Side
+Black Forest Cake,German,45,1.3,Dessert

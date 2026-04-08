@@ -1,0 +1,16 @@
+{
+  "DEL001": {
+    "destination": "C",
+    "status": "Pending",
+    "progress": 0,
+    "created_at": "2025-10-16T09:19:53.428254",
+    "updated_at": "2025-10-16T09:20:42.156522"
+  },
+  "DEL002": {
+    "destination": "I",
+    "status": "Pending",
+    "progress": 0,
+    "created_at": "2025-10-16T09:19:53.428254",
+    "updated_at": "2025-10-16T09:20:42.156522"
+  }
+}

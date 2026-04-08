@@ -1,0 +1,18 @@
+{
+  "D001": {
+    "name": "John Doe",
+    "status": "Available",
+    "current_location": "A",
+    "assigned_deliveries": [],
+    "created_at": "2025-10-16T09:19:53.428254",
+    "updated_at": "2025-10-16T09:22:03.276023"
+  },
+  "D002": {
+    "name": "Jane Smith",
+    "status": "Available",
+    "current_location": "E",
+    "assigned_deliveries": [],
+    "created_at": "2025-10-16T09:19:53.428254",
+    "updated_at": "2025-10-16T09:22:03.276023"
+  }
+}

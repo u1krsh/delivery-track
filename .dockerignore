@@ -1,0 +1,61 @@
+# ═══════════════════════════════════════════════════════════════════
+# .dockerignore — Delivery Tracker OpenEnv Benchmark
+# ═══════════════════════════════════════════════════════════════════
+# Keeps the Docker build context small and the final image clean.
+# Only the env/, src/, and top-level Python scripts are needed.
+
+# ── Virtual environments ────────────────────────────────────────────
+.venv/
+venv/
+env.bak/
+
+# ── Python caches ───────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ── IDE / editor ────────────────────────────────────────────────────
+.vscode/
+.idea/
+.gemini/
+*.swp
+*.swo
+*~
+
+# ── Git ─────────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── OS files ────────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store
+
+# ── Documentation / architecture (not needed at runtime) ───────────
+architecture/
+*.tex
+*.png
+system_architecture*
+generate_architecture.py
+README.md
+
+# ── Test / validation scripts (not needed in production image) ─────
+_validate_*.py
+_test_*.py
+_phase*_output.txt
+tests/
+
+# ── Data directory (sample data, not needed at runtime) ────────────
+data/
+
+# ── Docker / compose files (don't copy into the image) ─────────────
+Dockerfile
+docker-compose*.yml
+.dockerignore
+.env
+.env.*
+
+# ── Deployment checklist (dev artifact) ─────────────────────────────
+DEPLOY_CHECKLIST.md

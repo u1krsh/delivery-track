@@ -1,0 +1,262 @@
+# ═══════════════════════════════════════════════════════════════════════
+# OpenEnv Environment Manifest — Delivery Tracker Benchmark
+# ═══════════════════════════════════════════════════════════════════════
+#
+# This file is the canonical metadata for the OpenEnv framework.
+# It is read by the OpenEnv CLI (`openenv validate`, `openenv push`)
+# and the Hugging Face Spaces runtime to discover and configure
+# the environment.
+#
+# Spec reference: https://github.com/meta-pytorch/OpenEnv
+
+# ── Identity ────────────────────────────────────────────────────────
+name: delivery-tracker
+version: "1.0.0"
+description: >
+  A real-world-inspired delivery dispatch benchmark for evaluating
+  AI agents on multi-driver assignment, graph-based routing, and
+  order-completion tasks with dense reward signals.
+authors:
+  - name: "u1krsh"
+    affiliation: "AccurateFoodDelivery"
+license: "MIT"
+tags:
+  - delivery
+  - dispatch
+  - routing
+  - assignment
+  - logistics
+  - reinforcement-learning
+
+# ── Runtime ─────────────────────────────────────────────────────────
+runtime:
+  language: python
+  version: ">=3.10"
+  entrypoint: inference.py
+  install: "pip install -r requirements.txt"
+  docker:
+    file: Dockerfile
+    target_resources:
+      vcpus: 2
+      memory_gb: 8
+
+# ── Environment API ─────────────────────────────────────────────────
+environment:
+  module: env.environment
+  class: DeliveryEnvironment
+  config_model: env.models.TaskConfig
+
+  api:
+    reset:
+      description: "Reset the environment and return the initial observation."
+      returns: env.models.Observation
+    step:
+      description: "Execute one action and return (observation, reward, terminated, truncated, info)."
+      accepts: env.models.Action
+      returns: env.models.StepResult
+    state:
+      description: "Return the current observation without advancing the environment."
+      returns: env.models.Observation
+    internal_state:
+      description: "Return the full internal state snapshot (not agent-visible)."
+      returns: env.models.InternalState
+
+  # Action space definition
+  action_space:
+    type: discrete
+    actions:
+      - name: assign_driver
+        params: [driver_id, delivery_id]
+        description: "Assign a delivery order to a driver."
+      - name: move_driver
+        params: [driver_id, target_node]
+        description: "Move a driver to an adjacent graph node."
+      - name: pickup_delivery
+        params: [driver_id, delivery_id]
+        description: "Pick up a delivery at the current (pickup) node."
+      - name: complete_delivery
+        params: [driver_id, delivery_id]
+        description: "Complete a delivery at the destination node."
+
+  # Observation space definition
+  observation_space:
+    type: structured
+    fields:
+      - name: task_id
+        type: string
+      - name: task_prompt
+        type: string
+      - name: step_number
+        type: integer
+      - name: max_steps
+        type: integer
+      - name: nodes
+        type: "list[NodeInfo]"
+      - name: drivers
+        type: "list[DriverInfo]"
+      - name: deliveries
+        type: "list[DeliveryInfo]"
+      - name: available_actions
+        type: "list[string]"
+      - name: last_action_result
+        type: string
+
+# ── Tasks ───────────────────────────────────────────────────────────
+tasks:
+  module: env.tasks
+  loader: get_task
+  registry: TASK_IDS
+
+  definitions:
+    - id: easy
+      name: "Single Delivery"
+      difficulty: easy
+      seed: 1001
+      max_steps: 10
+      description: >
+        4-node linear graph, 1 driver, 1 delivery.
+        Tests basic assignment and routing.
+      graph:
+        nodes: 4
+        edges: 3
+        topology: linear_chain
+      drivers: 1
+      deliveries: 1
+      requires_pickup: false
+      optimal_steps: 5
+      optimal_cost: 10.0
+
+    - id: medium
+      name: "Multi-Drop Grid"
+      difficulty: medium
+      seed: 2002
+      max_steps: 25
+      description: >
+        9-node 3×3 grid, 2 drivers, 3 deliveries.
+        Tests multi-driver assignment and efficient routing.
+      graph:
+        nodes: 9
+        edges: 12
+        topology: grid_3x3
+      drivers: 2
+      deliveries: 3
+      requires_pickup: false
+      optimal_steps: 12
+
+    - id: hard
+      name: "Peak-Hour Dispatch"
+      difficulty: hard
+      seed: 3003
+      max_steps: 50
+      description: >
+        16-node 4×4 grid with congested edges, 3 drivers,
+        5 deliveries requiring pickup then delivery.
+        Tests capacity management, traffic avoidance, and planning.
+      graph:
+        nodes: 16
+        edges: 24
+        topology: grid_4x4_congested
+      drivers: 3
+      deliveries: 5
+      requires_pickup: true
+      driver_capacity: 2
+
+# ── Grading ─────────────────────────────────────────────────────────
+grading:
+  module: env.graders
+  class: TaskGrader
+  method: grade_detailed
+  convenience: grade_episode
+
+  score_range: [0.0, 1.0]
+  deterministic: true
+
+  dimensions:
+    - name: completion
+      weight: 0.40
+      description: "Fraction of deliveries completed."
+    - name: efficiency
+      weight: 0.25
+      description: "Optimal travel cost / actual travel cost."
+    - name: speed
+      weight: 0.20
+      description: "Fewer steps relative to max_steps."
+    - name: validity
+      weight: 0.15
+      description: "1.0 minus deductions for invalid actions."
+
+# ── Reward shaping ──────────────────────────────────────────────────
+reward:
+  type: dense
+  per_step: true
+  components:
+    - name: delivery_progress
+      value: 0.1
+      trigger: "Moving toward delivery goal"
+    - name: pickup_bonus
+      value: 0.2
+      trigger: "Picking up a delivery at pickup node"
+    - name: delivery_completion
+      value: 1.0
+      trigger: "Completing a delivery at destination"
+    - name: efficiency_bonus
+      value: "0.0–0.5"
+      trigger: "On completion, based on optimal/actual cost ratio"
+    - name: invalid_action_penalty
+      value: -0.3
+      trigger: "Attempting an invalid action"
+    - name: loop_penalty
+      value: -0.1
+      trigger: "Revisiting a previously seen state"
+    - name: idle_penalty
+      value: -0.05
+      trigger: "Valid action with no progress"
+
+# ── Inference ───────────────────────────────────────────────────────
+inference:
+  entrypoint: inference.py
+  env_vars:
+    - name: API_BASE_URL
+      required: false
+      default: "https://api-inference.huggingface.co/v1"
+      description: "Base URL for the OpenAI-compatible API."
+    - name: MODEL_NAME
+      required: false
+      default: "mistralai/Mistral-7B-Instruct-v0.3"
+      description: "Model identifier (e.g., gpt-4o, meta-llama/Llama-3)."
+    - name: HF_TOKEN
+      required: false
+      default: "(embedded)"
+      description: "Hugging Face token — hardcoded default, override to use your own."
+    - name: OPENAI_API_KEY
+      required: false
+      description: "OpenAI API key (alternative to HF_TOKEN)."
+
+  structured_logging:
+    format: json
+    events:
+      - type: START
+        fields: [task_id, timestamp, model_name]
+      - type: STEP
+        fields: [step, action, reward, valid, observation_summary]
+      - type: END
+        fields: [task_id, score, completion_rate, steps_used, total_reward]
+
+# ── Validation ──────────────────────────────────────────────────────
+validation:
+  commands:
+    - name: "Import check"
+      run: "python -c \"from env import DeliveryEnvironment; print('OK')\""
+      expect: "OK"
+    - name: "Task loader"
+      run: "python -c \"from env.tasks import get_task, TASK_IDS; [get_task(t) for t in TASK_IDS]; print('3 tasks loaded')\""
+      expect: "3 tasks loaded"
+    - name: "Grader check"
+      run: "python -c \"from env.graders import grade_episode; print('grader OK')\""
+      expect: "grader OK"
+    - name: "Determinism"
+      run: "python -c \"from env.tasks import get_task; a=get_task('easy').model_dump(); b=get_task('easy').model_dump(); assert a==b; print('deterministic')\""
+      expect: "deterministic"
+    - name: "Full smoke test"
+      run: "python -c \"from env.tasks import get_task; from env.environment import DeliveryEnvironment; from env.models import Action, ActionType; cfg=get_task('easy'); env=DeliveryEnvironment(cfg); obs=env.reset(); r=env.step(Action(action_type=ActionType.ASSIGN_DRIVER, driver_id='D1', delivery_id='DEL1')); print('PASSED')\""
+      expect: "PASSED"

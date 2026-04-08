@@ -1,0 +1,21 @@
+# ═══════════════════════════════════════════════════════════════════
+# Delivery Tracker OpenEnv Benchmark — Python Dependencies
+# ═══════════════════════════════════════════════════════════════════
+
+# Core
+pydantic>=2.0,<3.0
+
+# Inference client (OpenAI-compatible — works with HuggingFace API)
+openai>=1.0,<2.0
+
+# LLM access via HuggingFace
+huggingface-hub>=0.20
+
+# Domain logic dependencies (used by src/)
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.3
+requests>=2.31
+
+# YAML parsing for openenv.yaml validation
+pyyaml>=6.0

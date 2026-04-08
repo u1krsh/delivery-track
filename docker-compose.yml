@@ -1,0 +1,39 @@
+# ═══════════════════════════════════════════════════════════════════
+# docker-compose.yml — Local development runner
+# ═══════════════════════════════════════════════════════════════════
+#
+# Usage:
+#   1. Copy .env.example → .env and fill in your keys
+#   2. docker compose up --build
+#
+# Resource limits mirror HF Spaces free tier (2 vCPU, 8 GB RAM).
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: delivery-tracker-openenv
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    env_file:
+      - .env
+    environment:
+      - PORT=${PORT:-8080}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 8G
+        reservations:
+          cpus: "1.0"
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "python", "-c",
+        "import urllib.request, sys; r = urllib.request.urlopen('http://localhost:${PORT:-8080}/healthz', timeout=2); sys.exit(0 if r.status == 200 else 1)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
