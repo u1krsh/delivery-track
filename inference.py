@@ -42,7 +42,7 @@ _PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from openai import OpenAI
+from huggingface_hub import InferenceClient
 
 from env.environment import DeliveryEnvironment
 from env.models import Action, ActionType, Observation, StepResult
@@ -273,7 +273,7 @@ class DeliveryAgent:
         self.model = model
         self.api_base = api_base
         self.api_key = api_key
-        self.client = OpenAI(api_key=api_key, base_url=api_base)
+        self.client = InferenceClient(token=api_key)
         self.grader = TaskGrader()
         self._stop_requested = False
 
@@ -337,7 +337,7 @@ class DeliveryAgent:
         while not terminated and not truncated and not self._stop_requested:
             # Call the LLM
             try:
-                completion = self.client.chat.completions.create(
+                completion = self.client.chat_completion(
                     model=self.model,
                     messages=messages,
                     temperature=0.0,
