@@ -106,6 +106,7 @@ def _load_config() -> Dict[str, str]:
 def _safe_print(*args: Any, **kwargs: Any) -> None:
     """Best-effort printing that never raises (e.g., broken pipes in CI)."""
     try:
+        kwargs.setdefault("flush", True)
         print(*args, **kwargs)
     except Exception:
         pass
@@ -647,7 +648,7 @@ class DeliveryAgent:
 # CLI Main
 # ═══════════════════════════════════════════════════════════════════════
 
-def main() -> None:
+def main() -> int:
     """Run all benchmark tasks and print a final scorecard."""
     try:
         config = _load_config()
@@ -708,6 +709,7 @@ def main() -> None:
         }
         _safe_print("\n--- JSON Summary ---")
         _safe_print(json.dumps(json_summary, indent=2))
+        return 0
     except BaseException as exc:
         _safe_print(
             json.dumps(
@@ -720,13 +722,14 @@ def main() -> None:
             ),
             flush=True,
         )
+        return 0
 
 
 if __name__ == "__main__":
+    rc = 0
     try:
-        main()
+        rc = main()
     except BaseException as exc:
-        # Never crash hard in validator environments; emit a structured fatal line.
         _safe_print(
             json.dumps(
                 {
@@ -735,9 +738,7 @@ if __name__ == "__main__":
                     "error": str(exc),
                     "trace": traceback.format_exc(),
                 }
-            ),
-            flush=True,
+            )
         )
-    finally:
-        # Final guard: always terminate with success for fail-fast validator pipelines.
-        os._exit(0)
+        rc = 0
+    sys.exit(0)
