@@ -89,6 +89,11 @@ def _load_config() -> Dict[str, str]:
         in {"1", "true", "yes", "on"}
     )
 
+    # If no API key is available, automatically use rule-based mode to avoid
+    # API errors and unhandled network exceptions during validation.
+    if not api_key:
+        force_rule_based = True
+
     return {
         "api_base": api_base,
         "model": model,
@@ -296,12 +301,26 @@ class DeliveryAgent:
         self.model = model
         self.api_base = api_base
         self.api_key = api_key
-        self.client = InferenceClient(token=api_key)
+        try:
+            self.client = InferenceClient(
+                token=api_key or None,
+                # 30 s per-call ceiling; prevents hanging indefinitely on slow/unresponsive APIs.
+                timeout=float(os.environ.get("API_TIMEOUT", "30")),
+            )
+        except Exception as exc:
+            _safe_print(
+                json.dumps({
+                    "event": "WARN",
+                    "warning": f"InferenceClient init failed, switching to rule-based: {exc}",
+                }),
+                flush=True,
+            )
+            self.client = None
         self.grader = TaskGrader()
         self._stop_requested = False
         self.fallback_on_api_error = fallback_on_api_error
         self.force_rule_based = force_rule_based
-        self._api_disabled = force_rule_based
+        self._api_disabled = force_rule_based or (self.client is None)
 
     def stop(self):
         """Request the agent to stop after the current step."""
@@ -515,7 +534,7 @@ class DeliveryAgent:
         while not terminated and not truncated and not self._stop_requested:
             # Call the LLM
             raw_response = ""
-            if self._api_disabled:
+            if self._api_disabled or self.client is None:
                 action = self._choose_rule_based_action(obs)
             else:
                 try:
@@ -567,7 +586,20 @@ class DeliveryAgent:
                 )
 
             # Step the environment
-            result: StepResult = env.step(action)
+            try:
+                result: StepResult = env.step(action)
+            except Exception as exc:
+                _safe_print(
+                    json.dumps({
+                        "event": "ERROR",
+                        "task_id": task_id,
+                        "step": step_num + 1,
+                        "error": f"Environment step error: {exc}",
+                        "timestamp": _ts(),
+                    }),
+                    flush=True,
+                )
+                break
             step_num = result.observation.step_number
             terminated = result.terminated
             truncated = result.truncated
@@ -615,8 +647,20 @@ class DeliveryAgent:
             return None
 
         # Grade
-        report = self.grader.grade_detailed(env)
-        summary = env.get_episode_summary()
+        try:
+            report = self.grader.grade_detailed(env)
+            summary = env.get_episode_summary()
+        except Exception as exc:
+            _safe_print(
+                json.dumps({
+                    "event": "ERROR",
+                    "task_id": task_id,
+                    "error": f"Grading error: {exc}",
+                    "timestamp": _ts(),
+                }),
+                flush=True,
+            )
+            return None
 
         log_end(
             task_id=task_id,
