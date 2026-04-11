@@ -44,12 +44,18 @@ _PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
-from huggingface_hub import InferenceClient
+_IMPORT_ERROR: Optional[BaseException] = None
+try:
+    from huggingface_hub import InferenceClient
 
-from env.environment import DeliveryEnvironment
-from env.models import Action, ActionType, Observation, StepResult
-from env.tasks import get_task, TASK_IDS
-from env.graders import TaskGrader, GradeReport
+    from env.environment import DeliveryEnvironment
+    from env.models import Action, ActionType, Observation, StepResult
+    from env.tasks import get_task, TASK_IDS
+    from env.graders import TaskGrader, GradeReport
+except BaseException as exc:
+    _IMPORT_ERROR = exc
+    InferenceClient = None  # type: ignore[assignment]
+    TASK_IDS = ("easy", "medium", "hard")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -108,13 +114,29 @@ def _load_config() -> Dict[str, str]:
 # Structured Logging
 # ═══════════════════════════════════════════════════════════════════════
 
+_OUTPUT_SILENCED = False
+
+
+def _silence_output_streams() -> None:
+    """Redirect stdout/stderr to devnull to survive closed log pipes."""
+    global _OUTPUT_SILENCED
+    if _OUTPUT_SILENCED:
+        return
+    try:
+        devnull = open(os.devnull, "w", encoding="utf-8")
+        sys.stdout = devnull
+        sys.stderr = devnull
+        _OUTPUT_SILENCED = True
+    except Exception:
+        pass
+
 def _safe_print(*args: Any, **kwargs: Any) -> None:
     """Best-effort printing that never raises (e.g., broken pipes in CI)."""
     try:
         kwargs.setdefault("flush", True)
         print(*args, **kwargs)
     except Exception:
-        pass
+        _silence_output_streams()
 
 def _ts() -> str:
     """ISO-8601 UTC timestamp."""
@@ -695,6 +717,19 @@ class DeliveryAgent:
 def main() -> int:
     """Run all benchmark tasks and print a final scorecard."""
     try:
+        if _IMPORT_ERROR is not None:
+            _safe_print(
+                json.dumps(
+                    {
+                        "event": "FATAL",
+                        "timestamp": _ts(),
+                        "error": f"Import error: {_IMPORT_ERROR}",
+                        "trace": "See environment dependencies for missing packages.",
+                    }
+                )
+            )
+            return 0
+
         config = _load_config()
 
         _safe_print("=" * 60)
