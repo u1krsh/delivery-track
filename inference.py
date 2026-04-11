@@ -91,7 +91,7 @@ def _load_config() -> Dict[str, str]:
         in {"1", "true", "yes", "on"}
     )
     force_rule_based = (
-        os.environ.get("FORCE_RULE_BASED", "0").strip().lower()
+        os.environ.get("FORCE_RULE_BASED", "1").strip().lower()
         in {"1", "true", "yes", "on"}
     )
 
